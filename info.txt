@@ -1,0 +1,4 @@
+Dataset: CIFAR-100
+Models 
+    Teacher: ResNet-110
+    Student:
