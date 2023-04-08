@@ -7,6 +7,7 @@ from Data.Utilities.device_loader import get_device, ToDeviceLoader, to_device
 from Data.Utilities.data_transformer import trainingAugmentation
 from Models.Blocks.ResidualBlock import ResidualBlock
 from Models.ResNet import ResNet
+from Models.DummyTeacherModel import DummyTeacherModel
 
 BATCH_SIZE = 128
 K_SPLITS = 10
@@ -68,7 +69,8 @@ if __name__ == '__main__':
     for fold, (train_idx,val_idx) in enumerate(k_folds.split(torch.arange(len(train_dataset)))):
          print('Fold {}'.format(fold + 1))
 
-         model = to_device(ResNet(ResidualBlock, [teacher_model_number, teacher_model_number, teacher_model_number]), device)
+         #model = to_device(ResNet(ResidualBlock, [teacher_model_number, teacher_model_number, teacher_model_number]), device)
+         model = to_device(DummyTeacherModel(), device)
          optimizer =  OPTIMIZER(model.parameters(), lr=0.002)
         
          #History for current fold
@@ -117,11 +119,3 @@ if __name__ == '__main__':
         
          model_histories['fold{}'.format(fold+1)] = history 
 
-
-    #Preprocess
-
-    #Build models
-
-    #Train
-
-    #Display
