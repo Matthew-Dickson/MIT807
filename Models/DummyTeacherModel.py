@@ -1,9 +1,10 @@
-from Models.BaseModel import BaseModel
+
 from Models.Layers.Convolution import conv3x3
 import torch.nn as nn
+from Models.Model import Model
 
 
-class DummyTeacherModel(BaseModel):
+class DummyTeacherModel(Model):
     def __init__(self,input_channels=3, num_classes=100):
         super().__init__()
         self.conv = conv3x3(input_channels, 32) 

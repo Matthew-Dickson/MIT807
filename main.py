@@ -1,3 +1,4 @@
+import json
 import torch
 import time
 from torch.utils.data import DataLoader, SubsetRandomSampler
@@ -5,6 +6,7 @@ from torchvision.datasets import CIFAR100, MNIST
 from sklearn.model_selection import KFold
 from Data.Utilities.device_loader import get_device, ToDeviceLoader, to_device
 from Data.Utilities.data_transformer import trainingAugmentation
+from Functions.LossFunctions.loss_functions import knowledge_distillation_loss
 from Models.Blocks.ResidualBlock import ResidualBlock
 from Models.ResNet import ResNet
 from Models.DummyTeacherModel import DummyTeacherModel
@@ -12,8 +14,7 @@ from Models.DummyStudentModel import DummyStudentModel
 import torch.nn as nn
 import sys
 
-sys.setrecursionlimit(100000000)
-
+from utils.fileUtil import FileUtil
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -45,6 +46,7 @@ def train(train_dataset,
           specified_model,
           teacher_model,
           input_channels,
+          output_channels,
           learning_rate,
           criterion,
           device,
@@ -56,18 +58,24 @@ def train(train_dataset,
 
     model_histories={}
 
-    if knowledge_distillation:
-        teacher = teacher_model(input_channels=input_channels)
+
+    teacher = None
+    if save is not True and knowledge_distillation:
+        teacher = to_device(teacher_model(input_channels=input_channels,num_classes=output_channels),device=device)
         teacher.load('./Data/Models/{}.pt'.format(name_of_model))
+        for param_tensor in teacher.state_dict():
+            print(param_tensor, "\t", teacher.state_dict()[param_tensor].size())
+            print(param_tensor, "\t", teacher.state_dict()[param_tensor])
 
-
+    
+    
     if save is False:
         #Get k folds
         k_folds =KFold(n_splits=k_splits,shuffle=True,random_state=RANDOM_STATE)
         for fold, (train_idx,val_idx) in enumerate(k_folds.split(torch.arange(len(train_dataset)))):
                 print('Fold {}'.format(fold + 1))
 
-                model = to_device(specified_model(input_channels=input_channels), device)
+                model = to_device(specified_model(input_channels=input_channels,num_classes=output_channels), device)
                 optimizer =  specified_optimizer(model.parameters(), lr=learning_rate)
             
                 #History for current fold
@@ -81,12 +89,25 @@ def train(train_dataset,
 
                 train_data_on_specified_device = ToDeviceLoader(train_dl, device)
                 validation_data_on_specified_device= ToDeviceLoader(validation_dl, device)
+
                 
                 for epoch in range(num_of_epochs):
                     t0 = time.time()
-                    train_loss, train_correct=model.train_epoch(train_data_on_specified_device,criterion,optimizer, device)
+
+                    train_loss, train_correct=model.train_epoch(dataloader=train_data_on_specified_device,
+                                                                        loss_fn=criterion,
+                                                                        optimizer=optimizer,
+                                                                        teacher=teacher,
+                                                                        temperature = 40,
+                                                                        options ={"alpha" : 0},
+                                                                        device = device)
                     t1 = time.time()
-                    validation_loss, validation_correct=model.valid_epoch(validation_data_on_specified_device,criterion, device)
+                    validation_loss, validation_correct=model.valid_epoch(dataloader=validation_data_on_specified_device,
+                                                                                  loss_fn=criterion,
+                                                                                  teacher = teacher,
+                                                                                  temperature = 40,
+                                                                                  options ={"alpha" : 0},
+                                                                                  device = device)
                     t2 = time.time()
 
                     avg_train_loss_per_epoch = train_loss / len(train_dl.sampler)
@@ -113,10 +134,10 @@ def train(train_dataset,
                     history['valid_time'].append(t2-t1)
             
                 model_histories['fold{}'.format(fold+1)] = history 
-                loop_through_layers(model)
+                #loop_through_layers(model)
     else:
 
-        model = to_device(specified_model(input_channels=input_channels), device)
+        model = to_device(specified_model(input_channels=input_channels, num_classes=output_channels), device)
         optimizer =  specified_optimizer(model.parameters(), lr=learning_rate)
         #History for current fold
         history = {'train_loss': [], 'valid_loss': [],'train_acc':[],'valid_acc':[], 'train_time':[], 'valid_time': []}
@@ -145,23 +166,25 @@ def train(train_dataset,
             history['train_time'].append(t1-t0)
 
         model.save('./Data/Models/{}.pt'.format(name_of_model))
-    return history
+    return model_histories
 
 
 
 
 
 BATCH_SIZE = 128
-K_SPLITS = 5
+K_SPLITS = 3
 NUMBER_OF_EPOCHS = 5
 RANDOM_STATE = 42
 OPTIMIZER = torch.optim.Adam
-CRITERION = torch.nn.CrossEntropyLoss()
+CRITERION = knowledge_distillation_loss
+#CRITERION = torch.nn.CrossEntropyLoss()
 LEARNING_RATE = 0.002
 RUN_DUMMY = True
 SAVE=False
 NAME_OF_MODEL = "dummyParent"
-KNOWLEDGE_DISTILLATION = False
+KNOWLEDGE_DISTILLATION = True
+SAVE_HISTORY_FILE_PATH = "./Data/history.txt"
 # teacher_model_number = 3
 # teacher_model_number = 18 
 
@@ -172,13 +195,16 @@ if __name__ == '__main__':
 
     data = None
     input_channels = None
+    output_channels = None
   
     if(RUN_DUMMY):
         data = 'MNIST'
         input_channels = 1
+        output_channels = 10
     else:
         data = 'CIFAR100'
         input_channels = 3
+        output_channels = 100
 
 
     #loading data 
@@ -200,6 +226,7 @@ if __name__ == '__main__':
                            specified_model=DummyStudentModel,
                            teacher_model=DummyTeacherModel,
                            input_channels=input_channels,
+                           output_channels=output_channels,
                            learning_rate=LEARNING_RATE,
                            criterion=CRITERION,
                            device=device,
@@ -210,6 +237,10 @@ if __name__ == '__main__':
                            knowledge_distillation=KNOWLEDGE_DISTILLATION)
     
     print(model_histories)
+
+    file_helper = FileUtil()
+    data = file_helper.save_to_file(model_histories,SAVE_HISTORY_FILE_PATH)
+    
 
     
 

@@ -1,9 +1,9 @@
-from Models.BaseModel import BaseModel
+from Models.DistillationModel import Distillation
 from Models.Layers.Convolution import conv3x3
 import torch.nn as nn
 
 
-class DummyStudentModel(BaseModel):
+class DummyStudentModel(Distillation):
     def __init__(self,input_channels=3, num_classes=100):
         super().__init__()
         self.conv = conv3x3(input_channels, 32) 
