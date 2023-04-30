@@ -1,14 +1,11 @@
 import torch
+from torch.nn.functional import softmax
 
 def softmax_with_temperature(logits, temperature) -> torch.float32:
     return torch.exp(logits/temperature) / torch.sum(torch.exp(logits/temperature))
 
 def batch_softmax_with_temperature(batch_logits, temperature) -> torch.tensor:
-    batch_probs = []
-    for logits in batch_logits:
-        probs = softmax_with_temperature(logits,temperature)
-        batch_probs.append(probs)
-    return torch.stack(batch_probs)
+    return softmax(batch_logits/temperature,dim=1)
 
 if __name__ == '__main__':
     logits = torch.tensor([1., 2., 3.])

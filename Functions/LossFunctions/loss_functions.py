@@ -1,49 +1,63 @@
 import torch
-import torch.nn as nn
+
+def distillation_loss(soft_probabilities, soft_targets, distill_loss_function) -> torch.float32: 
+    return distill_loss_function(input=soft_probabilities, target=soft_targets)
+
+def student_loss(logits, hard_target, student_loss_function) -> torch.float32: 
+    return student_loss_function(input=logits, target=hard_target)
 
 
-# def vanillia_knowledge_distillation_loss(distillation_loss,student_loss, options) -> torch.float32:
-#      alpha =  options.get("alpha") if options.get("alpha") != None else 0.1         
-#      return alpha * distillation_loss  + (1-alpha) * student_loss
-
-def distillation_loss(soft_predictions, soft_targets, distill_loss_function = nn.CrossEntropyLoss()) -> torch.float32: 
-    return distill_loss_function(input=soft_predictions, target=soft_targets)
-
-def student_loss(predictions, hard_target, student_loss_function = nn.CrossEntropyLoss()) -> torch.float32: 
-    return student_loss_function(input=predictions, target=hard_target)
-
-# def knowledge_distillation_loss(student_loss, distillation_loss, options ={"alpha" : 0.1},
-#                                  loss_function=vanillia_knowledge_distillation_loss) -> torch.float32:
-#     return loss_function(distillation_loss,student_loss, options)
+def cross_entropy(input, target, epsilon=1e-12):
+    """
+    Computes cross entropy between targets (encoded as one-hot vectors)
+    and predictions. 
+    Input: predictions (N, k) ndarray
+           targets (N, k) ndarray        
+    Returns: scalar
+    """
+    ce = []
+    print(input.size())
+    print(target.size())
+    # for probs in input:
+    #     ceValue = - torch.mean(torch.log(probs) * target, dim=1) 
+    #     ce.append(ceValue)
+    #predictions = torch.clip(predictions, epsilon, 1. - epsilon)
+    ceValue = - torch.mean(torch.log(input) * target, dim=0) 
+    return ceValue
 
 
 def vanillia_knowledge_distillation_loss(soft_targets,
-                         probs_with_temperature,
-                         student_probs,
+                         soft_probabilities,
+                         logits,
                          labels,
                          distill_loss_function,
                          student_loss_function,
                          options) -> torch.float32:
      
-     student_loss_value = student_loss(predictions = student_probs,hard_target = labels, student_loss_function = student_loss_function)
-     distill_loss_value = distillation_loss(probs_with_temperature, soft_targets, distill_loss_function)
+     
+     distill_loss_value = distillation_loss(soft_probabilities = soft_probabilities,
+                                            soft_targets = soft_targets,
+                                            distill_loss_function =  distill_loss_function)
+     student_loss_value = student_loss(logits = logits,
+                                       hard_target = labels,
+                                      student_loss_function = student_loss_function)
 
      alpha =  options.get("alpha") if options.get("alpha") != None else 0.1         
      return alpha * distill_loss_value  + (1-alpha) * student_loss_value
 
 
 def knowledge_distillation_loss(soft_targets,
-                         probs_with_temperature,
-                         student_probs,
+                         soft_probabilities,
+                         logits,
                          labels,
                          options,
-                         distill_loss_function=nn.CrossEntropyLoss(),
-                         student_loss_function=nn.CrossEntropyLoss(),
+                         distill_loss_function,
+                         student_loss_function,
                          loss_implementation=vanillia_knowledge_distillation_loss) -> torch.float32:
     
     return loss_implementation(soft_targets=soft_targets,
-                         probs_with_temperature=probs_with_temperature,
-                         student_probs=student_probs,
+                         soft_probabilities=soft_probabilities,
+                         logits=logits,
                          labels=labels,
                          distill_loss_function=distill_loss_function,
                          student_loss_function=student_loss_function,
@@ -64,9 +78,3 @@ if __name__ == '__main__':
     student_loss = student_loss(hard_predictions,hard_labels)
     print('distill loss: {} distill loss type: {}'.format(distill_loss, distill_loss.dtype))
     print('student loss: {} student loss type: {}'.format(student_loss, student_loss.dtype))
-
-    # loss_one = knowledge_distillation_loss(student_loss, distill_loss)
-    # loss_two = knowledge_distillation_loss(student_loss, distill_loss, loss_function=vanillia_knowledge_distillation_loss, options={"alpha": 1})
-
-    # print('loss_one: {} loss_one type: {}'.format(loss_one, loss_one.dtype))
-    # print('loss_two: {} loss_two type: {}'.format(loss_two, loss_two.dtype))

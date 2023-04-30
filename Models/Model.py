@@ -1,8 +1,4 @@
 import torch
-from torch import nn
-import torch.nn.functional as F
-
-from Functions.ActivationFunctions.activation_functions import batch_softmax_with_temperature
 from Models.BaseModel import BaseModel
 
 
