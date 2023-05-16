@@ -71,7 +71,7 @@ class Distillation(BaseModel):
 
                 loss=loss_fn(soft_targets = soft_targets,
                          soft_probabilities = soft_probabilities,
-                         logits = student_probs,
+                         logits = logits,
                          labels = labels,
                          options = options,
                          distill_loss_function=distill_loss_function,

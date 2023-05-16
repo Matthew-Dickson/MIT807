@@ -11,7 +11,6 @@ from torchvision import utils
 import random
 import numpy as np
 
-from Functions.LossFunctions.loss_functions import cross_entropy
 
 def visTensor(tensor, ch=0, allkernels=False, nrow=8, padding=1): 
         n,c,w,h = tensor.shape
@@ -199,7 +198,7 @@ def train_knowledge_distilation(train_dataset,
     
     #Get k folds
     k_folds =KFold(n_splits=k_splits,shuffle=True,random_state=random_state)
-    for fold, (train_idx,val_idx) in enumerate(k_folds.split(torch.arange(len(train_dataset)))):
+    for fold, (train_idx,val_idx) in enumerate(k_folds.split(train_dataset)):
             print('Fold {}'.format(fold + 1))
 
             model = to_device(student_model(input_channels=input_channels,num_classes=output_channels), device)
@@ -230,7 +229,7 @@ def train_knowledge_distilation(train_dataset,
                                                                     temperature = temperature,
                                                                     distill_loss_function=distill_loss_function,
                                                                     student_loss_function=student_loss_function,
-                                                                    options = options,
+                                                                    options =options,
                                                                     device = device)
                 t1 = time.time()
                 validation_loss, validation_correct=model.valid_epoch(dataloader=validation_data_on_specified_device,
@@ -243,10 +242,10 @@ def train_knowledge_distilation(train_dataset,
                                                                                 device = device)
                 t2 = time.time()
 
-                avg_train_loss_per_epoch = train_loss / len(train_dl.sampler)
-                avg_train_acc_per_epoch = train_correct / len(train_dl.sampler) * 100
-                avg_validation_loss_per_epoch = validation_loss / len(validation_dl.sampler)
-                avg_validation_acc_per_epoch = validation_correct / len(validation_dl.sampler) * 100
+                avg_train_loss_per_epoch = train_loss / len(train_dl.sampler.indices)
+                avg_train_acc_per_epoch = train_correct / len(train_dl.sampler.indices) * 100
+                avg_validation_loss_per_epoch = validation_loss / len(validation_dl.sampler.indices)
+                avg_validation_acc_per_epoch = validation_correct / len(validation_dl.sampler.indices) * 100
 
                 print("Epoch:{}/{} AVG Training Loss:{:.3f} AVG validation Loss:{:.3f} AVG Training Acc {:.2f} % AVG Validation Acc {:.2f} % Training Time Taken: {:.2f} Seconds Validation Time Taken {:.2f} Seconds"
                     .format(epoch + 1,

@@ -12,10 +12,10 @@ import random
 import numpy as np
 
 BATCH_SIZE = 128
-K_SPLITS = 3
+K_SPLITS = 10
 NUMBER_OF_EPOCHS = 10
 RANDOM_STATE = 42
-OPTIONS = {"alpha" : 0.3}
+OPTIONS = {"alpha" : 1}
 TEMPERATURE = 5
 OPTIMIZER = torch.optim.Adam
 TEACHER_CRITERION =  torch.nn.CrossEntropyLoss()
