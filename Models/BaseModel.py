@@ -7,12 +7,14 @@ class BaseModel(nn.Module):
     def predict(self,dataloader,device="cpu"):
         self.eval()
         with torch.no_grad():
+            correct = 0
             for images, labels in dataloader:
                 images,labels = images.to(device),labels.to(device)
                 logits = self(images)
                 _,predictions = torch.max(logits,1)
+                correct+=(predictions == labels).sum().item()
 
-        return predictions
+        return predictions, correct
     
     def generate_soft_targets(self,images,temperature = 40):
         self.eval()

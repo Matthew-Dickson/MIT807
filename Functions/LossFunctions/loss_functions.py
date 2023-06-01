@@ -28,22 +28,23 @@ def vanillia_knowledge_distillation_loss(soft_targets,
      return alpha * distill_loss_value  + (1-alpha) * student_loss_value
 
 
-def filter_loss(teacher_filters, student_filters):
-    flatten_teacher_filters = torch.flatten(teacher_filters)
-    flatten_student_filters = torch.flatten(student_filters)
+def filter_loss(teacher_kernels, student_kernels):
+    flatten_teacher_kernels = torch.flatten(teacher_kernels)
+    flatten_student_kernels = torch.flatten(student_kernels)
      
+    distance = torch.sqrt(torch.sum(torch.square(flatten_teacher_kernels)) - torch.sum(torch.square(flatten_student_kernels)))
     #try different distance metrics
-    distance = np.linalg.norm(flatten_teacher_filters - flatten_student_filters)
+    #distance = np.linalg.norm(flatten_teacher_kernels - flatten_student_kernels)
     return distance
 
 def filter_knowledge_distillation_loss(soft_targets,
                          soft_probabilities,
                          logits,
                          labels,
+                         teacher_kernels,
+                         student_kernels,
                          distill_loss_function,
                          student_loss_function,
-                         teacher_filters,
-                         student_filters,
                          options) -> torch.float32:
      
      
@@ -54,7 +55,7 @@ def filter_knowledge_distillation_loss(soft_targets,
                                        hard_target = labels,
                                       student_loss_function = student_loss_function)
      
-     filter_loss_value = filter_loss(teacher_filters, student_filters)
+     filter_loss_value = filter_loss(teacher_kernels, student_kernels)
      alpha =  options.get("alpha") if options.get("alpha") != None else 0.1    
      beta =  options.get("beta") if options.get("beta") != None else 1      
      return (alpha * distill_loss_value  + (1-alpha) * student_loss_value) + (beta)* filter_loss_value
@@ -64,6 +65,8 @@ def knowledge_distillation_loss(soft_targets,
                          soft_probabilities,
                          logits,
                          labels,
+                         teacher_kernels,
+                         student_kernels,
                          options,
                          distill_loss_function,
                          student_loss_function,
@@ -73,6 +76,8 @@ def knowledge_distillation_loss(soft_targets,
                          soft_probabilities=soft_probabilities,
                          logits=logits,
                          labels=labels,
+                         teacher_kernels=teacher_kernels,
+                         student_kernels=student_kernels,
                          distill_loss_function=distill_loss_function,
                          student_loss_function=student_loss_function,
                          options=options)

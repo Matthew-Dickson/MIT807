@@ -1,13 +1,21 @@
 import torch
 from Functions.ActivationFunctions.activation_functions import batch_softmax_with_temperature
-from Functions.LossFunctions.loss_functions import vanillia_knowledge_distillation_loss
+from Functions.LossFunctions.loss_functions import filter_knowledge_distillation_loss, vanillia_knowledge_distillation_loss
 from Models.BaseModel import BaseModel
-
+import torch.nn as nn
 
 class Distillation(BaseModel):
+
+    def get_kernels(model):
+        for layer in model.modules():
+            if isinstance(layer, nn.Conv2d):
+                kernels = layer.weight.data.clone()
+        return kernels
     
     def train_epoch(self,
                     dataloader,
+                    teacher_kernels,
+                    student_kernels,
                     loss_fn,
                     optimizer,
                     teacher,
@@ -15,7 +23,7 @@ class Distillation(BaseModel):
                     distill_loss_function,
                     student_loss_function,
                     temperature,
-                    loss_implementation=vanillia_knowledge_distillation_loss,
+                    loss_implementation=filter_knowledge_distillation_loss,
                     device="cpu"):
         train_loss,train_correct=0.0,0
         self.train()
@@ -33,6 +41,8 @@ class Distillation(BaseModel):
                          soft_probabilities = soft_probabilities,
                          logits = logits,
                          labels = labels,
+                         teacher_kernels = teacher_kernels,
+                         student_kernels = student_kernels,
                          options = options,
                          distill_loss_function=distill_loss_function,
                          student_loss_function=student_loss_function,

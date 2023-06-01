@@ -17,7 +17,7 @@ def trainingAugmentation():
 def testingAugmentation():
     transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize(mean=(0.5071, 0.4867, 0.4408), std=(0.2675, 0.2565, 0.2761))
+        transforms.Normalize((0.1307,), (0.3081,))
     ])
 
     return transform
