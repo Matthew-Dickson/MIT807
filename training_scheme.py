@@ -4,7 +4,6 @@ from torch.utils.data import DataLoader
 from Data.Utilities.device_loader import ToDeviceLoader, to_device
 import torch.nn as nn
 from torch.nn.functional import softmax
-
 from early_stopper import EarlyStopper
 
 
@@ -14,8 +13,6 @@ def get_kernels(model):
         if isinstance(layer, nn.Conv2d):
             kernels = layer.weight.data.clone()
     return kernels
-
-
 
 def batch_softmax_with_temperature(batch_logits, temperature) -> torch.tensor:
     return softmax(batch_logits/temperature,dim=1)
@@ -57,7 +54,7 @@ def filter_knowledge_distillation_loss(soft_targets,
      filter_loss_value = filter_loss(teacher_kernels, student_kernels)
      alpha =  options.get("alpha") if options.get("alpha") != None else 0.1    
      beta =  options.get("beta") if options.get("beta") != None else 1      
-     return (1-beta)(alpha * distill_loss_value  + (1-alpha) * student_loss_value) + (beta)* filter_loss_value
+     return ((1-beta)*(alpha * distill_loss_value  + (1-alpha) * student_loss_value) + (beta)* filter_loss_value)
 
 
 def vanillia_knowledge_distillation_loss(soft_targets,
@@ -92,21 +89,29 @@ def train(train_dataset,
           device):
         
         #Define Defaults
-        distillation_type =  train_options.get("distillation_type") if train_options.get("distillation_type") != None else "none"
         learning_rate = train_options.get("learning_rate") if train_options.get("learning_rate") != None else 0.01
         batch_size = train_options.get("batch_size") if train_options.get("batch_size") != None else 128
         model_optimizer = train_options.get("optimizer") if train_options.get("optimizer") != None else torch.optim.Adam
         number_of_epochs = train_options.get("number_of_epochs") if train_options.get("number_of_epochs") != None else 9999999999999
         temperature = train_options.get("temperature") if train_options.get("temperature") != None else 20
 
-        distill_loss_function=nn.CrossEntropyLoss()                                                    
+
+        early_stopping_options = train_options.get("early_stopping") 
+        patience =  early_stopping_options.get("patience") if early_stopping_options.get("patience") != None else 5
+        min_delta =  early_stopping_options.get("min_delta") if early_stopping_options.get("min_delta") != None else 0
+        early_stopper=EarlyStopper(patience=patience,min_delta=min_delta)
+
+
+        distill_loss_function= nn.KLDivLoss(reduction='batchmean')                                                    
         student_loss_function=nn.CrossEntropyLoss()
         loss_function = nn.CrossEntropyLoss()
-
-        if(train_options.get("loss_parameters") == None):
-            raise Exception("Requires loss parameters")
-        
+   
         loss_parameters = train_options.get("loss_parameters")
+        distillation_type =  loss_parameters.get("distillation_type") if loss_parameters.get("distillation_type") != None else "none"
+
+        if(distillation_type == "traditional" or distillation_type == filter):
+            if(train_options.get("loss_parameters") == None):
+                raise Exception("Requires loss parameters")
         
         model = to_device(student_model(input_channels=input_channels,num_classes=output_channels),device=device)
         optimizer =  model_optimizer(model.parameters(), lr=learning_rate)
