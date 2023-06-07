@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from Models.Model import Model
 
 
 def conv3x3(in_channels, out_channels, stride=1):
@@ -77,12 +78,12 @@ class Bottleneck(nn.Module):
         return out
 
 
-class ResNet(nn.Module):
-    def __init__(self, block, layers, num_classes=1000):
+class ResNet(Model):
+    def __init__(self, block, layers, input_channels=3, num_classes=100):
         super(ResNet, self).__init__()
         self.in_channels = 64
 
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(input_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -137,27 +138,23 @@ class ResNet(nn.Module):
         return x
 
 
-def ResNet18(num_classes=100):
-    return ResNet(BasicBlock, [2, 2, 2, 2], num_classes)
+def ResNet18(num_classes=100,input_channels=3):
+    return ResNet(BasicBlock, [2, 2, 2, 2],input_channels, num_classes)
 
-def ResNet34(num_classes=100):
-    return ResNet(BasicBlock, [3, 4, 6, 3], num_classes)
+def ResNet34(num_classes=100,input_channels=3):
+    return ResNet(BasicBlock, [3, 4, 6, 3],input_channels, num_classes)
 
-def ResNet50(num_classes=100):
-    return ResNet(Bottleneck, [3, 4, 6, 3], num_classes)
+def ResNet50(num_classes=100,input_channels=3):
+    return ResNet(Bottleneck, [3, 4, 6, 3],input_channels, num_classes)
 
-def ResNet101(num_classes=100):
-    return ResNet(Bottleneck, [3, 4, 23, 3], num_classes)
+def ResNet101(num_classes=100,input_channels=3):
+    return ResNet(Bottleneck, [3, 4, 23, 3],input_channels, num_classes)
 
-def ResNet110():
-    return ResNet(BasicBlock, [18, 18, 18, 18], num_classes=1000)
+def ResNet110(num_classes=100,input_channels=3):
+    return ResNet(BasicBlock, [18, 18, 18, 18],input_channels, num_classes)
 
-def ResNet152(num_classes=100):
-    return ResNet(Bottleneck, [3, 8, 36, 3], num_classes)
-
-
+def ResNet152(num_classes=100,input_channels=3):
+    return ResNet(Bottleneck, [3, 8, 36, 3],input_channels, num_classes)
 
 
-# Example usage:
-model = ResNet18(num_classes=1000)
-print(model)
+

@@ -1,8 +1,8 @@
 import torch
+import argparse
 from torchvision.datasets import CIFAR100, MNIST
 from Data.Utilities.device_loader import get_device
 from Data.Utilities.data_transformer import trainingAugmentation
-from Functions.LossFunctions.loss_functions import knowledge_distillation_loss
 from Models.DummyTeacherModel import DummyTeacherModel
 from Models.ResNet2 import ResNet110
 from training_scheme import train
@@ -14,40 +14,50 @@ torch.manual_seed(RANDOM_STATE)
 random.seed(RANDOM_STATE)
 np.random.seed(RANDOM_STATE)
 
-
-
 BATCH_SIZE = 128
-NUMBER_OF_EPOCHS = 100
+NUMBER_OF_EPOCHS = 10
+EARLY_STOPPING_PATIENCE = 5
+EARLY_STOPPING_MINIMUM_DELTA = 0
 
 OPTIMIZER = torch.optim.Adam
-TEACHER_CRITERION =  torch.nn.CrossEntropyLoss()
-STUDENT_CRITERION = knowledge_distillation_loss
 LEARNING_RATE = 0.01
 TRAIN_VALID_SPLIT = 0.8
 
 RUN_ON = "CIFAR100"
-TEACHER_MODEL = ResNet110
-DISTILLATION_TYPE = "None"
-SAVE_TEACHER_PATH = './Data/Models/dummyParent.pt'
+DISTILLATION_TYPE = "Ce"
+#SAVE_TEACHER_PATH = './Data/Models/Resnet110Parent.pt'
+SAVE_TEACHER_PATH = './Data/Models/test.pt'
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--numberOfEpochs', help='Number of epochs to train for', default=NUMBER_OF_EPOCHS)
+parser.add_argument('--learningRate', help='The learning rate applied to the optimizer', default=LEARNING_RATE)
+parser.add_argument('--batchSize', help='The batch size to backpropagate on', default=BATCH_SIZE)
+parser.add_argument('--lossFunction', help='The loss function to use', default=DISTILLATION_TYPE)
+parser.add_argument('--runOn', help='The data set to run on', default=RUN_ON)
+parser.add_argument('--trainValidSplit', help='Split percentage of training and validation', default=TRAIN_VALID_SPLIT)
+parser.add_argument('--saveTeacherFilePath', help='The path to save results', default=SAVE_TEACHER_PATH)
+parser.add_argument('--earlyStoppingPatience', help='The early stopping patience', default=EARLY_STOPPING_PATIENCE)
+parser.add_argument('--earlyStoppingMinimumDelta', help='The early stopping minimum delta', default=EARLY_STOPPING_MINIMUM_DELTA)
+args = parser.parse_args()
 
 
 EARLY_STOPING_OPTIONS = {
-    "patience": 5,
-    "min_delta": 0
+    "patience": int(args.earlyStoppingPatience),
+    "min_delta": float(args.earlyStoppingMinimumDelta)
 }
 
 LOSS_OPTIONS = {
-      "distillation_type": DISTILLATION_TYPE,
+      "distillation_type": args.lossFunction,
 }
 
 
-TRAIN_OPTIONS = {"learning_rate": LEARNING_RATE,
+TRAIN_OPTIONS = {"learning_rate": float(args.learningRate),
                   "optimizer" : OPTIMIZER,
-                  "batch_size": BATCH_SIZE,
-                  "number_of_epochs": NUMBER_OF_EPOCHS,
+                  "batch_size": int(args.batchSize),
+                  "number_of_epochs": int(args.numberOfEpochs),
                   "loss_parameters": LOSS_OPTIONS,
                   "early_stopping": EARLY_STOPING_OPTIONS}
-
 
 
 def split_dataset(dataset, split_percentage):
@@ -71,30 +81,30 @@ if __name__ == '__main__':
     valid_dataset = None
     test_dataset = None
 
-    if(RUN_ON == "CIFAR100"):
+    if(args.runOn == "CIFAR100"):
         input_channels = 3
         output_channels = 100
         train_val_dataset = CIFAR100(root='Data/', train=True, download=True, transform=trainingAugmentation())
         test_dataset = CIFAR100(root='Data/', train=False,transform=trainingAugmentation())
+        TEACHER_MODEL = ResNet110(num_classes=output_channels,input_channels=input_channels) 
     
-    if(RUN_ON == "MNIST"):
+    if(args.runOn == "MNIST"):
         input_channels = 1
         output_channels = 10
         train_val_dataset = MNIST(root='Data/', train=True, download=True, transform=trainingAugmentation())
         test_dataset = MNIST(root='Data/', train=False,transform=trainingAugmentation())
+        TEACHER_MODEL = DummyTeacherModel(num_classes=output_channels,input_channels=input_channels) 
 
    
-    train_dataset, valid_dataset = split_dataset(dataset=train_val_dataset,split_percentage=TRAIN_VALID_SPLIT)
+    train_dataset, valid_dataset = split_dataset(dataset=train_val_dataset,split_percentage=args.trainValidSplit)
     model_information=train(train_dataset=train_dataset,
                     valid_dataset = valid_dataset,
                     student_model=TEACHER_MODEL,
                     teacher_model=None,
-                    input_channels=input_channels,
-                    output_channels=output_channels,
                     device=device,
                     train_options = TRAIN_OPTIONS)
     model = model_information["model"]
-    model.save(SAVE_TEACHER_PATH)
+    model.save(args.saveTeacherFilePath)
     
     
     

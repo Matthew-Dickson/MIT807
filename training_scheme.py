@@ -83,8 +83,6 @@ def train(train_dataset,
           valid_dataset,
           student_model,
           teacher_model,
-          input_channels,
-          output_channels,
           train_options,
           device):
         
@@ -113,7 +111,7 @@ def train(train_dataset,
             if(train_options.get("loss_parameters") == None):
                 raise Exception("Requires loss parameters")
         
-        model = to_device(student_model(input_channels=input_channels,num_classes=output_channels),device=device)
+        model = to_device(student_model,device=device)
         optimizer =  model_optimizer(model.parameters(), lr=learning_rate)
        
         train_dl = DataLoader(dataset=train_dataset, batch_size=batch_size,shuffle=False)
@@ -261,15 +259,6 @@ def train(train_dataset,
             
             if(early_stopper.early_stop(validation_loss=avg_validation_loss_per_epoch)):
                 break
-            
-    
-
-            avg_train_loss_per_epochs.append(avg_train_loss_per_epoch)
-            avg_train_acc_per_epochs.append(avg_train_acc_per_epoch)
-            avg_validation_loss_per_epochs.append(avg_validation_loss_per_epoch)
-            avg_validation_acc_per_epochs.append(avg_validation_acc_per_epoch)
-            avg_train_run_times_per_epochs.append(avg_train_run_time)
-            avg_validation_run_times_per_epochs.append(avg_validation_run_time)
 
         return {"results": {"avg_train_loss_per_epochs": avg_train_loss_per_epochs,
                                 "avg_validation_loss_per_epochs":avg_validation_loss_per_epochs,
