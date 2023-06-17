@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from Functions.ActivationFunctions.activation_functions import batch_softmax_with_temperature
+from functions.activation.activation_functions import batch_softmax_with_temperature
 
 class BaseModel(nn.Module):
 

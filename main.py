@@ -4,15 +4,19 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR100, MNIST
 from Data.Utilities.device_loader import get_device, ToDeviceLoader, to_device
 from Data.Utilities.data_transformer import trainingAugmentation
+from Functions.LossFunctions.filter_knowledge_distillation_loss import FilterKnowledgeDistillationLoss
+from Functions.LossFunctions.traditional_distillation_loss import TraditionalKnowledgeDistillationLoss
+from Functions.loss_type import LossType
 from Models.DummyTeacherModel import DummyTeacherModel
 from Models.DummyStudentModel import DummyStudentModel
-from Models.ResNet2 import ResNet110, ResNet34
+from Models.ResNet import resnet110, resnet32
 from training_scheme import train
 from utils.fileUtil import FileUtil
 import random
 import numpy as np
 from sklearn.model_selection import KFold
 from operator import itemgetter
+import torch.nn as nn
 
 RANDOM_STATE = 42
 torch.manual_seed(RANDOM_STATE)
@@ -29,13 +33,19 @@ LEARNING_RATE = 0.01
 TRAIN_VALID_SPLIT = 0.8
 RUN_ON = "MNIST"
 RUN_K_FOLD = False
-DISTILLATION_TYPE = "filter"
-FILE_PATH_OF_TEACHER = './Data/Models/dummyParent.pt'
-SAVE_HISTORY_FILE_PATH = "./Data/"
+DISTILLATION_TYPE = 1
+FILE_PATH_OF_TEACHER = './data/models/dummyParent.pt'
+SAVE_HISTORY_FILE_PATH = "./data/"
 ALPHA = 0.4
 BETA = 0.3
 EARLY_STOPPING_PATIENCE = 5
 EARLY_STOPPING_MINIMUM_DELTA = 0
+
+
+MOMENTUM=0.9,
+WEIGHT_DECAY=1e-4
+SCHEDULE = [81,122]
+GAMMA = 0.1
 
 
 parser = argparse.ArgumentParser()
@@ -84,6 +94,17 @@ def split_dataset(dataset, split_percentage):
     first_partition, second_partition = torch.utils.data.random_split(dataset,[first_partition_size,second_partition_size])
     return first_partition, second_partition
 
+def get_loss_function(loss_type):
+    loss_function = None
+    if(LossType.FILTER.name == LossType(loss_type).name):
+        loss_function = FilterKnowledgeDistillationLoss(options=LOSS_OPTIONS)
+    elif(LossType.TRADITIONAL.name == LossType(loss_type).name):
+        loss_function = TraditionalKnowledgeDistillationLoss(options=LOSS_OPTIONS)
+    elif(LossType.ATTENTION.name == LossType(loss_type).name):
+        loss_function = nn.CrossEntropyLoss()
+    elif(LossType.CE.name == LossType(loss_type).name):
+        loss_function = nn.CrossEntropyLoss()
+    return loss_function
 
 if __name__ == '__main__':
 
@@ -102,15 +123,15 @@ if __name__ == '__main__':
     if(args.runOn == "CIFAR100"):
         input_channels = 3
         output_channels = 100
-        train_val_dataset = CIFAR100(root='Data/', train=True, download=True, transform=trainingAugmentation())
-        test_dataset = CIFAR100(root='Data/', train=False,transform=trainingAugmentation())
-        TEACHER_MODEL = ResNet110(num_classes=output_channels,input_channels=input_channels) 
+        train_val_dataset = CIFAR100(root='data/', train=True, download=True, transform=trainingAugmentation())
+        test_dataset = CIFAR100(root='data/', train=False,transform=trainingAugmentation())
+        TEACHER_MODEL = resnet110()
     
     if(args.runOn == "MNIST"):
         input_channels = 1
         output_channels = 10
-        train_val_dataset = MNIST(root='Data/', train=True, download=True, transform=trainingAugmentation())
-        test_dataset = MNIST(root='Data/', train=False,transform=trainingAugmentation())
+        train_val_dataset = MNIST(root='data/', train=True, download=True, transform=trainingAugmentation())
+        test_dataset = MNIST(root='data/', train=False,transform=trainingAugmentation())
         TEACHER_MODEL = DummyTeacherModel(num_classes=output_channels,input_channels=input_channels) 
 
     test_dl = DataLoader(dataset=test_dataset, batch_size=int(args.batchSize), shuffle=False)
@@ -133,9 +154,9 @@ if __name__ == '__main__':
                 "number_of_epochs": int(args.numberOfEpochs),
                 "loss_parameters": {
                         "temperature": float(args.temperature),
-                            "distillation_type": args.lossFunction,
-                            "alpha" : float(args.alpha),
-                            "beta" : float(args.beta)
+                        "distillation_type": LossType(args.lossFunction).name,
+                        "alpha" : float(args.alpha),
+                        "beta" : float(args.beta)
                     }
                 }
             }
@@ -149,7 +170,7 @@ if __name__ == '__main__':
             if(args.runOn == "CIFAR100"):
                 input_channels = 3
                 output_channels = 100
-                STUDENT_MODEL = ResNet34(num_classes=output_channels,input_channels=input_channels)
+                STUDENT_MODEL = resnet32()
             
             if(args.runOn == "MNIST"):
                 input_channels = 1
@@ -162,8 +183,10 @@ if __name__ == '__main__':
             #Gets data
             train_dataset = itemgetter(*train_idx)(train_val_dataset)
             valid_dataset = itemgetter(*val_idx)(train_val_dataset)
+            loss_function = get_loss_function(int(args.lossFunction))
 
             model_information=train(train_dataset=train_dataset,
+                    loss_function = loss_function,
                     valid_dataset = valid_dataset,
                     student_model=STUDENT_MODEL,
                     teacher_model=teacher,
@@ -186,12 +209,12 @@ if __name__ == '__main__':
             test_accuracy = correct / len(test_dataset) * 100 
             history['test_accuracy'] = test_accuracy
             model_histories['fold{}'.format(fold+1)] = history 
-            file_helper.save_to_file(model_histories,args.saveHistoryFilePath+"/"+args.lossFunction+"_history_.json")
+            file_helper.save_to_file(model_histories,args.saveHistoryFilePath+"/"+LossType(args.lossFunction).name+"_history_.json")
     else:
         if(args.runOn == "CIFAR100"):
             input_channels = 3
             output_channels = 100
-            STUDENT_MODEL = ResNet34(num_classes=output_channels,input_channels=input_channels)
+            STUDENT_MODEL = resnet32(num_classes=output_channels,input_channels=input_channels)
         
         if(args.runOn == "MNIST"):
             input_channels = 1
@@ -200,8 +223,10 @@ if __name__ == '__main__':
         history = {'train_losses': [], 'valid_losses': [],'train_accs':[],'valid_accs':[], 'train_times':[], 'valid_times': [],'test_accuracy': None, 'convergence_iteration': None}
         #Split data
         train_dataset, valid_dataset = split_dataset(dataset=train_val_dataset,split_percentage=float(args.trainValidSplit))
+        loss_function = get_loss_function(int(args.lossFunction))
         model_information=train(train_dataset=train_dataset,
                     valid_dataset = valid_dataset,
+                    loss_function=loss_function,
                     student_model=STUDENT_MODEL,
                     teacher_model=teacher,
                     device=device,
@@ -221,7 +246,7 @@ if __name__ == '__main__':
         test_accuracy = correct / len(test_dataset) * 100 
         history['test_accuracy'] = test_accuracy
         model_histories["results"] = history 
-        file_helper.save_to_file(model_histories,args.saveHistoryFilePath+"/"+args.lossFunction+"_history_.json")
+        file_helper.save_to_file(model_histories,args.saveHistoryFilePath+"/"+LossType(args.lossFunction).name+"_history_.json")
         
 
     

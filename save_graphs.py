@@ -1,8 +1,9 @@
 import numpy as np
 from utils.fileUtil import FileUtil
 from matplotlib import pyplot as plt
+from re import search
 
-FILE_PATH = "./Data/history.txt"
+FILE_PATH = "./data/filter_history_hyper_parameter_configuration_22.json"
 
 def show_figures(train_metric,
                 valid_metric,
@@ -29,81 +30,89 @@ def show_figures(train_metric,
 if __name__ == '__main__':
 
     file_helper = FileUtil()
-    metrics = file_helper.load_file(FILE_PATH)
+    file = file_helper.load_file(FILE_PATH)
 
     
-    train_accuracy_metric = []
-    valid_accuracy_metric = []
-    train_loss_metric = []
-    valid_loss_metric = []
-    train_time_metric = []
-    valid_time_metric = []
+    avg_fold_train_accuracy_metrics = []
+    avg_valid_accuracy_metrics = []
+    avg_train_loss_metrics = []
+    avg_valid_loss_metrics = []
+    avg_train_time_metrics = []
+    avg_valid_time_metrics = []
 
-    for fold in metrics:
-        fold_train_accuracy_metric = metrics[fold]['train_acc']
-        fold_valid_accuracy_metric = metrics[fold]['valid_acc']
+    for attribute in file:
+        if not search("fold", attribute):
+            continue
+        fold_train_accuracy_metrics = file[attribute]['train_accs']
+        fold_valid_accuracy_metrics = file[attribute]['valid_accs']
 
-        fold_train_loss_metric = metrics[fold]['train_loss']
-        fold_valid_loss_metric = metrics[fold]['valid_loss']
+        fold_train_loss_metrics = file[attribute]['train_losses']
+        fold_valid_loss_metrics = file[attribute]['valid_losses']
 
-        fold_train_time_metric = metrics[fold]['train_time']
-        fold_valid_time_metric = metrics[fold]['valid_time']
+        fold_train_time_metrics = file[attribute]['train_times']
+        fold_valid_time_metrics = file[attribute]['valid_times']
 
+        avg_fold_train_accuracy_metric = np.sum(fold_train_accuracy_metrics, axis=0) / len(fold_train_accuracy_metrics)
+        avg_fold_valid_accuracy_metrics = np.sum(fold_valid_accuracy_metrics, axis=0) / len(fold_valid_accuracy_metrics)
+        avg_fold_train_loss_metrics = np.sum(fold_train_loss_metrics, axis=0) / len(fold_train_loss_metrics)
+        avg_fold_valid_loss_metrics = np.sum(fold_valid_loss_metrics, axis=0) / len(fold_valid_loss_metrics)
+        avg_fold_train_time_metrics = np.sum(fold_train_time_metrics, axis=0) / len(fold_train_time_metrics)
+        avg_fold_valid_time_metrics = np.sum(fold_valid_time_metrics, axis=0) / len(fold_valid_time_metrics)
 
-        train_accuracy_metric.append(fold_train_accuracy_metric)
-        valid_accuracy_metric.append(fold_valid_accuracy_metric)
-        train_loss_metric.append(fold_train_loss_metric)
-        valid_loss_metric.append(fold_valid_loss_metric)
-        train_time_metric.append(fold_train_time_metric)
-        valid_time_metric.append(fold_valid_time_metric)
-
-
-    avg_train_accuracy_metric = np.sum(train_accuracy_metric, axis=0) / len(train_accuracy_metric)
-    avg_valid_accuracy_metric = np.sum(valid_accuracy_metric, axis=0) / len(valid_accuracy_metric)
-    avg_train_loss_metric = np.sum(train_loss_metric, axis=0) / len(train_loss_metric)
-    avg_valid_loss_metric = np.sum(valid_loss_metric, axis=0) / len(valid_loss_metric)
-    avg_train_time_metric = np.sum(train_time_metric, axis=0) / len(train_time_metric)
-    avg_valid_time_metric = np.sum(valid_time_metric, axis=0) / len(valid_time_metric)
+        avg_fold_train_accuracy_metrics.append(avg_fold_train_accuracy_metric)
+        avg_valid_accuracy_metrics.append(avg_fold_valid_accuracy_metrics)
+        avg_train_loss_metrics.append(avg_fold_train_loss_metrics)
+        avg_valid_loss_metrics.append(avg_fold_valid_loss_metrics)
+        avg_train_time_metrics.append(avg_fold_train_time_metrics)
+        avg_valid_time_metrics.append(avg_fold_valid_time_metrics)
 
 
-    print(avg_train_accuracy_metric)
-    print(avg_valid_accuracy_metric)
-    print(avg_train_loss_metric)
-    print(avg_valid_loss_metric)
-    print(avg_train_time_metric)
-    print(avg_valid_time_metric)
+    avg_across_folds_train_accuracy_metric = np.sum(avg_fold_train_accuracy_metrics, axis=0) / len(avg_fold_train_accuracy_metrics)
+    avg_across_folds_valid_accuracy_metric = np.sum(avg_valid_accuracy_metrics, axis=0) / len(avg_valid_accuracy_metrics)
+    avg_across_folds_train_loss_metric = np.sum(avg_train_loss_metrics, axis=0) / len(avg_train_loss_metrics)
+    avg_across_folds_valid_loss_metric = np.sum(avg_valid_loss_metrics, axis=0) / len(avg_valid_loss_metrics)
+    avg_across_folds_train_time_metric = np.sum(avg_train_time_metrics, axis=0) / len(avg_train_time_metrics)
+    avg_across_folds_valid_time_metric = np.sum(avg_valid_time_metrics, axis=0) / len(avg_valid_time_metrics)
+
+
+    print(avg_across_folds_train_accuracy_metric)
+    print(avg_across_folds_valid_accuracy_metric)
+    print(avg_across_folds_train_loss_metric)
+    print(avg_across_folds_valid_loss_metric)
+    print(avg_across_folds_train_time_metric)
+    print(avg_across_folds_valid_time_metric)
 
 
     show_figures(
-        train_metric=avg_train_accuracy_metric,
-        valid_metric=avg_valid_accuracy_metric,
+        train_metric=avg_across_folds_train_accuracy_metric,
+        valid_metric=avg_across_folds_valid_accuracy_metric,
         title='model accuracy',
         y_label='accuracy',
         x_label='epoch',
         legend=['train', 'val'],
-        save_file_path="./Data/accuracy.eps",
+        save_file_path="./data/accuracy.eps",
         show_figure=False
     )
 
     show_figures(
-        train_metric=avg_train_loss_metric,
-        valid_metric=avg_valid_loss_metric,
+        train_metric=avg_across_folds_train_loss_metric,
+        valid_metric=avg_across_folds_valid_loss_metric,
         title='model loss',
         y_label='loss',
         x_label='epoch',
         legend=['train', 'val'],
-        save_file_path="./Data/loss.eps",
+        save_file_path="./data/loss.eps",
         show_figure=False
     )
 
     show_figures(
-        train_metric=avg_train_time_metric,
-        valid_metric=avg_valid_time_metric,
+        train_metric=avg_across_folds_train_time_metric,
+        valid_metric=avg_across_folds_valid_time_metric,
         title='training time',
         y_label='time',
         x_label='epoch',
         legend=['train', 'val'],
-        save_file_path="./Data/time.eps",
+        save_file_path="./data/time.eps",
         show_figure=True
     )
 

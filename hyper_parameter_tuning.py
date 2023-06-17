@@ -1,12 +1,14 @@
 import torch
 from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR100, MNIST
-from Data.Utilities.device_loader import get_device, ToDeviceLoader, to_device
-from Data.Utilities.data_transformer import trainingAugmentation
-from Functions.LossFunctions.loss_functions import knowledge_distillation_loss
-from Models.DummyTeacherModel import DummyTeacherModel
-from Models.DummyStudentModel import DummyStudentModel
-from Models.ResNet2 import ResNet110, ResNet34
+from data.utilities.device_loader import get_device, ToDeviceLoader, to_device
+from data.utilities.data_transformer import trainingAugmentation
+from functions.loss.filter_knowledge_distillation_loss import FilterKnowledgeDistillationLoss
+from functions.loss.traditional_distillation_loss import TraditionalKnowledgeDistillationLoss
+from functions.loss_type import LossType
+from models.DummyTeacherModel import DummyTeacherModel
+from models.DummyStudentModel import DummyStudentModel
+from models.ResNet import resnet32, resnet110
 from training_scheme import train
 from utils.fileUtil import FileUtil
 import random
@@ -16,6 +18,7 @@ from operator import itemgetter
 import itertools
 import argparse
 import json
+import torch.nn as nn
 
 RANDOM_STATE = 42
 torch.manual_seed(RANDOM_STATE)
@@ -28,16 +31,14 @@ NUMBER_OF_EPOCHS = 10
 
 TEMPERATURE = [5,10,15,20]
 OPTIMIZER = torch.optim.Adam
-TEACHER_CRITERION =  torch.nn.CrossEntropyLoss()
-STUDENT_CRITERION = knowledge_distillation_loss
 LEARNING_RATE = [0.01,0.05,0.005]
 TRAIN_VALID_SPLIT = 0.8
 ALPHA = [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]
 BETA = [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]
 RUN_ON = "MNIST"
-RUN_K_FOLD = False
+RUN_K_FOLD = True
 TEACHER_MODEL = DummyTeacherModel
-DISTILLATION_TYPE = "filter"
+DISTILLATION_TYPE = 1
 FILE_PATH_OF_TEACHER = "./Data/Models/dummyParent.pt"
 SAVE_HISTORY_FILE_PATH = "./Data/"
 SAVE_TEACHER_PATH = './Data/Models/dummyParent.pt'
@@ -83,6 +84,18 @@ def create_hyperparams_grid(config):
     permutations_dicts = [dict(zip(keys, v)) for v in itertools.product(*values)]
     return permutations_dicts
 
+def get_loss_function(loss_type, loss_options):
+    loss_function = None
+    if(LossType.FILTER.name == LossType(loss_type).name):
+        loss_function = FilterKnowledgeDistillationLoss(options=loss_options)
+    elif(LossType.TRADITIONAL.name == LossType(loss_type).name):
+        loss_function = TraditionalKnowledgeDistillationLoss(options=loss_options)
+    elif(LossType.ATTENTION.name == LossType(loss_type).name):
+        loss_function = nn.CrossEntropyLoss()
+    elif(LossType.CE.name == LossType(loss_type).name):
+        loss_function = nn.CrossEntropyLoss()
+    return loss_function
+
 
 def execute_hyperparameter_tuning(hyper_parameters,teacher,test_data_on_specified_device,start=0):
 
@@ -94,7 +107,7 @@ def execute_hyperparameter_tuning(hyper_parameters,teacher,test_data_on_specifie
 
         LOSS_OPTIONS = {
         "temperature": int(config["TEMPERATURE"]),
-        "distillation_type": args.lossFunction,
+        "distillation_type": LossType(args.lossFunction).name,
         "alpha" : float(config["ALPHA"]),
         "beta" : float(config["BETA"])
             }
@@ -118,7 +131,7 @@ def execute_hyperparameter_tuning(hyper_parameters,teacher,test_data_on_specifie
                     "number_of_epochs": int(args.numberOfEpochs),
                     "loss_parameters": {
                             "temperature": int(config["TEMPERATURE"]),
-                                "distillation_type": args.lossFunction,
+                                "distillation_type": LossType(args.lossFunction).name,
                                 "alpha" : float(config["ALPHA"]),
                                 "beta" : float(config["BETA"])
                         }
@@ -134,7 +147,7 @@ def execute_hyperparameter_tuning(hyper_parameters,teacher,test_data_on_specifie
                 if(args.runOn == "CIFAR100"):
                     input_channels = 3
                     output_channels = 100
-                    STUDENT_MODEL = ResNet34(num_classes=output_channels,input_channels=input_channels)
+                    STUDENT_MODEL = resnet32()
             
                 if(args.runOn == "MNIST"):
                     input_channels = 1
@@ -148,7 +161,10 @@ def execute_hyperparameter_tuning(hyper_parameters,teacher,test_data_on_specifie
                 train_dataset = itemgetter(*train_idx)(train_val_dataset)
                 valid_dataset = itemgetter(*val_idx)(train_val_dataset)
 
+                loss_function = get_loss_function(int(args.lossFunction), loss_options=LOSS_OPTIONS)
+
                 model_information=train(train_dataset=train_dataset,
+                        loss_function = loss_function,
                         valid_dataset = valid_dataset,
                         student_model=STUDENT_MODEL,
                         teacher_model=teacher,
@@ -171,12 +187,12 @@ def execute_hyperparameter_tuning(hyper_parameters,teacher,test_data_on_specifie
                 test_accuracy = correct / len(test_dataset) * 100 
                 history['test_accuracy'] = test_accuracy
                 model_histories['fold{}'.format(fold+1)] = history 
-                file_helper.save_to_file(model_histories,args.saveHistoryFilePath+"/"+args.lossFunction+"_history_"+"hyper_parameter_configuration_"+str(index)+".json")
+                file_helper.save_to_file(model_histories,args.saveHistoryFilePath+"/"+LossType(args.lossFunction).name+"_history_"+"hyper_parameter_configuration_"+str(index)+".json")
         else:
             if(args.runOn == "CIFAR100"):
                 input_channels = 3
                 output_channels = 100
-                STUDENT_MODEL = ResNet34(num_classes=output_channels,input_channels=input_channels)
+                STUDENT_MODEL = resnet32(num_classes=output_channels,input_channels=input_channels)
             
             if(args.runOn == "MNIST"):
                 input_channels = 1
@@ -185,7 +201,9 @@ def execute_hyperparameter_tuning(hyper_parameters,teacher,test_data_on_specifie
             history = {'train_losses': [], 'valid_losses': [],'train_accs':[],'valid_accs':[], 'train_times':[], 'valid_times': [],'test_accuracy': None, 'convergence_iteration': None}
             #Split data
             train_dataset, valid_dataset = split_dataset(dataset=train_val_dataset,split_percentage=args.trainValidSplit)
+            loss_function = get_loss_function(int(args.lossFunction), loss_options=LOSS_OPTIONS)
             model_information=train(train_dataset=train_dataset,
+                        loss_function = loss_function,
                         valid_dataset = valid_dataset,
                         student_model=STUDENT_MODEL,
                         teacher_model=teacher,
@@ -206,7 +224,7 @@ def execute_hyperparameter_tuning(hyper_parameters,teacher,test_data_on_specifie
             test_accuracy = correct / len(test_dataset) * 100 
             history['test_accuracy'] = test_accuracy
             model_histories["results"] = history 
-            file_helper.save_to_file(model_histories,args.saveHistoryFilePath+"/"+args.lossFunction+"_history_"+"hyper_parameter_configuration_"+str(index)+".json")
+            file_helper.save_to_file(model_histories,args.saveHistoryFilePath+"/"+LossType(args.lossFunction).name+"_history_"+"hyper_parameter_configuration_"+str(index)+".json")
 
 
 
@@ -230,7 +248,7 @@ if __name__ == '__main__':
         output_channels = 100
         train_val_dataset = CIFAR100(root='Data/', train=True, download=True, transform=trainingAugmentation())
         test_dataset = CIFAR100(root='Data/', train=False,transform=trainingAugmentation())
-        TEACHER_MODEL = ResNet110(num_classes=output_channels,input_channels=input_channels) 
+        TEACHER_MODEL = resnet110(num_classes=output_channels,input_channels=input_channels) 
     
     if(args.runOn == "MNIST"):
         input_channels = 1

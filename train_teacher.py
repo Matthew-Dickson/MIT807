@@ -1,13 +1,17 @@
 import torch
 import argparse
 from torchvision.datasets import CIFAR100, MNIST
-from Data.Utilities.device_loader import get_device
-from Data.Utilities.data_transformer import trainingAugmentation
-from Models.DummyTeacherModel import DummyTeacherModel
-from Models.ResNet2 import ResNet110
+from data.utilities.device_loader import get_device
+from data.utilities.data_transformer import trainingAugmentation
+from functions.loss.filter_knowledge_distillation_loss import FilterKnowledgeDistillationLoss
+from functions.loss.traditional_distillation_loss import TraditionalKnowledgeDistillationLoss
+from functions.loss_type import LossType
+from models.DummyTeacherModel import DummyTeacherModel
+from models.ResNet import resnet110
 from training_scheme import train
 import random
 import numpy as np
+import torch.nn as nn
 
 RANDOM_STATE = 42
 torch.manual_seed(RANDOM_STATE)
@@ -15,18 +19,17 @@ random.seed(RANDOM_STATE)
 np.random.seed(RANDOM_STATE)
 
 BATCH_SIZE = 128
-NUMBER_OF_EPOCHS = 10
-EARLY_STOPPING_PATIENCE = 5
+NUMBER_OF_EPOCHS = 164
+EARLY_STOPPING_PATIENCE = 10000
 EARLY_STOPPING_MINIMUM_DELTA = 0
 
-OPTIMIZER = torch.optim.Adam
-LEARNING_RATE = 0.01
-TRAIN_VALID_SPLIT = 0.8
+OPTIMIZER = torch.optim.SGD
+LEARNING_RATE = 0.1
+TRAIN_VALID_SPLIT = 0.9
 
 RUN_ON = "CIFAR100"
-DISTILLATION_TYPE = "Ce"
-#SAVE_TEACHER_PATH = './Data/Models/Resnet110Parent.pt'
-SAVE_TEACHER_PATH = './Data/Models/test.pt'
+DISTILLATION_TYPE = 4
+SAVE_TEACHER_PATH = './data/models/Resnet110.pt'
 
 
 parser = argparse.ArgumentParser()
@@ -48,7 +51,7 @@ EARLY_STOPING_OPTIONS = {
 }
 
 LOSS_OPTIONS = {
-      "distillation_type": args.lossFunction,
+      "distillation_type": LossType(args.lossFunction).name
 }
 
 
@@ -65,6 +68,18 @@ def split_dataset(dataset, split_percentage):
     second_partition_size = len(dataset) - first_partition_size
     first_partition, second_partition = torch.utils.data.random_split(dataset,[first_partition_size,second_partition_size])
     return first_partition, second_partition
+
+def get_loss_function(loss_type, loss_options):
+    loss_function = None
+    if(LossType.FILTER.name == LossType(loss_type).name):
+        loss_function = FilterKnowledgeDistillationLoss(options=loss_options)
+    elif(LossType.TRADITIONAL.name == LossType(loss_type).name):
+        loss_function = TraditionalKnowledgeDistillationLoss(options=loss_options)
+    elif(LossType.ATTENTION.name == LossType(loss_type).name):
+        loss_function = nn.CrossEntropyLoss()
+    elif(LossType.CE.name == LossType(loss_type).name):
+        loss_function = nn.CrossEntropyLoss()
+    return loss_function
 
 
 if __name__ == '__main__':
@@ -86,7 +101,7 @@ if __name__ == '__main__':
         output_channels = 100
         train_val_dataset = CIFAR100(root='Data/', train=True, download=True, transform=trainingAugmentation())
         test_dataset = CIFAR100(root='Data/', train=False,transform=trainingAugmentation())
-        TEACHER_MODEL = ResNet110(num_classes=output_channels,input_channels=input_channels) 
+        TEACHER_MODEL = resnet110()
     
     if(args.runOn == "MNIST"):
         input_channels = 1
@@ -97,7 +112,9 @@ if __name__ == '__main__':
 
    
     train_dataset, valid_dataset = split_dataset(dataset=train_val_dataset,split_percentage=args.trainValidSplit)
+    loss_function = get_loss_function(int(args.lossFunction),LOSS_OPTIONS)
     model_information=train(train_dataset=train_dataset,
+                    loss_function=loss_function,
                     valid_dataset = valid_dataset,
                     student_model=TEACHER_MODEL,
                     teacher_model=None,
