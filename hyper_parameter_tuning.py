@@ -49,6 +49,7 @@ MOMENTUM=0.9
 WEIGHT_DECAY=1e-4
 SCHEDULE = [81,122]
 GAMMA = 0.1
+USE = "cpu"
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--number-of-epochs', help='Number of epochs to train for', type=int, default=NUMBER_OF_EPOCHS)
@@ -68,6 +69,7 @@ parser.add_argument('--early-stopping-minimum-delta', help='The early stopping m
 parser.add_argument('--save-history-file-path', help='The path to save results', default=SAVE_HISTORY_FILE_PATH)
 parser.add_argument('--start-index-config', help='Where to start in the hyper parameter search',type=int, default=START)
 parser.add_argument('--end-index-config', help='Where to end in the hyper parameter search',type=int, default=END)
+parser.add_argument('--use', help='To use a cpu or gpu',type=int, default=USE)
 
 
 
@@ -112,6 +114,7 @@ def get_loss_function(loss_type, loss_options):
 
 
 def execute_hyperparameter_tuning(hyper_parameters,
+                                  device,
                                   train_val_dataset,
                                   teacher,
                                   test_data_on_specified_device,
@@ -268,7 +271,11 @@ def execute_hyperparameter_tuning(hyper_parameters,
 if __name__ == '__main__':
 
     #Get GPU if avialable
-    device = get_device()
+    device = "cpu"
+    if(args.use == "cpu"):
+        device = "cpu"
+    else:
+        device = get_device()
 
     #Model dimensions
     input_channels = None
@@ -313,6 +320,7 @@ if __name__ == '__main__':
 
     execute_hyperparameter_tuning(hyperparams_grid,
                                   teacher=teacher,
+                                  device = device,
                                   train_val_dataset = train_val_dataset,
                                   test_data_on_specified_device=test_data_on_specified_device,
                                   start=args.start_index_config,
