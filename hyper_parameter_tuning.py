@@ -289,15 +289,15 @@ if __name__ == '__main__':
     if(args.run_on== "CIFAR100"):
         input_channels = 3
         output_channels = 100
-        train_val_dataset = CIFAR100(root='Data/', train=True, download=True, transform=cifar_training_augmentation())
-        test_dataset = CIFAR100(root='Data/', train=False,download=True,transform=cifar_testing_augmentation())
+        train_val_dataset = CIFAR100(root='data/', train=True, download=True, transform=cifar_training_augmentation())
+        test_dataset = CIFAR100(root='data/', train=False,download=True,transform=cifar_testing_augmentation())
         TEACHER_MODEL = resnet110() 
     
     if(args.run_on == "MNIST"):
         input_channels = 1
         output_channels = 10
-        train_val_dataset = MNIST(root='Data/', train=True, download=True, transform=mnist_training_augmentation())
-        test_dataset = MNIST(root='Data/', train=False,download=True,transform=mnist_testing_augmentation())
+        train_val_dataset = MNIST(root='data/', train=True, download=True, transform=mnist_training_augmentation())
+        test_dataset = MNIST(root='data/', train=False,download=True,transform=mnist_testing_augmentation())
         TEACHER_MODEL = DummyTeacherModel(num_classes=output_channels,input_channels=input_channels) 
 
     test_dl = DataLoader(dataset=test_dataset, batch_size=args.batch_size, shuffle=False)
@@ -305,7 +305,7 @@ if __name__ == '__main__':
     
     try:
         teacher = to_device(TEACHER_MODEL,device=device)
-        teacher.load(FILE_PATH_OF_TEACHER)
+        teacher.load(FILE_PATH_OF_TEACHER,device)
     except:
         raise Exception("Could not load teacher model")
     

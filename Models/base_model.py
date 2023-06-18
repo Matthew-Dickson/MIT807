@@ -26,7 +26,7 @@ class BaseModel(nn.Module):
     def save(self, path):
         torch.save(self.state_dict(), path)
 
-    def load(self, path):
-        self.load_state_dict(torch.load(path))
+    def load(self, path, device="cpu"):
+        self.load_state_dict(torch.load(path, map_location=device))
     
     
