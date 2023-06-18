@@ -69,7 +69,7 @@ parser.add_argument('--early-stopping-minimum-delta', help='The early stopping m
 parser.add_argument('--save-history-file-path', help='The path to save results', default=SAVE_HISTORY_FILE_PATH)
 parser.add_argument('--start-index-config', help='Where to start in the hyper parameter search',type=int, default=START)
 parser.add_argument('--end-index-config', help='Where to end in the hyper parameter search',type=int, default=END)
-parser.add_argument('--use', help='To use a cpu or gpu',type=int, default=USE)
+parser.add_argument('--use', help='To use a cpu or gpu', default=USE)
 
 
 
