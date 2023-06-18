@@ -1,4 +1,4 @@
-from models.ResNet import resnet110, resnet32
+from models.resnet import resnet110, resnet32
 
 if __name__ == '__main__':
     model = resnet32()

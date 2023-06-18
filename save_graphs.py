@@ -1,5 +1,5 @@
 import numpy as np
-from utils.fileUtil import FileUtil
+from functions.utilities.file_util import FileUtil
 from matplotlib import pyplot as plt
 from re import search
 
