@@ -35,15 +35,16 @@ LEARNING_RATE = [0.01,0.05,0.005]
 TRAIN_VALID_SPLIT = 0.8
 ALPHA = [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]
 BETA = [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]
-RUN_ON = "MNIST"
-RUN_K_FOLD = True
+RUN_ON = "CIFAR100"
+RUN_K_FOLD = False
 DISTILLATION_TYPE = 1
-FILE_PATH_OF_TEACHER = "./data/models/dummyParent.pt"
-SAVE_HISTORY_FILE_PATH = "./data/"
-EARLY_STOPPING_PATIENCE = 5
+FILE_PATH_OF_TEACHER = "./data/models/Resnet110.pt"
+SAVE_HISTORY_FILE_PATH = "./data/result/attention"
+EARLY_STOPPING_PATIENCE = 15
 EARLY_STOPPING_MINIMUM_DELTA = 0
 
 START = 0
+END = NUMBER_OF_EPOCHS
 MOMENTUM=0.9
 WEIGHT_DECAY=1e-4
 SCHEDULE = [81,122]
@@ -65,7 +66,8 @@ parser.add_argument('--teacher-file-path', help='The path to the teacher model',
 parser.add_argument('--early-stopping-patience', help='The early stopping patience', type=int, default=EARLY_STOPPING_PATIENCE)
 parser.add_argument('--early-stopping-minimum-delta', help='The early stopping minimum delta', type=float, default=EARLY_STOPPING_MINIMUM_DELTA)
 parser.add_argument('--save-history-file-path', help='The path to save results', default=SAVE_HISTORY_FILE_PATH)
-parser.add_argument('--index-config', help='Where to start in the hyper parameter search',type=int, default=START)
+parser.add_argument('--start-index-config', help='Where to start in the hyper parameter search',type=int, default=START)
+parser.add_argument('--end-index-config', help='Where to end in the hyper parameter search',type=int, default=END)
 
 
 
@@ -113,13 +115,17 @@ def execute_hyperparameter_tuning(hyper_parameters,
                                   train_val_dataset,
                                   teacher,
                                   test_data_on_specified_device,
-                                  start=0):
+                                  end,
+                                  start):
 
 
     for index, config in enumerate(hyper_parameters):
 
         if(index < start-1):
             continue
+
+        if(index == end - 1):
+            break
 
         LOSS_OPTIONS = {
         "temperature": int(config["TEMPERATURE"]),
@@ -309,7 +315,8 @@ if __name__ == '__main__':
                                   teacher=teacher,
                                   train_val_dataset = train_val_dataset,
                                   test_data_on_specified_device=test_data_on_specified_device,
-                                  start=START)
+                                  start=args.start_index_config,
+                                  end = args.end_index_config )
            
     
     
