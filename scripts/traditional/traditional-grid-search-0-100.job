@@ -1,0 +1,13 @@
+#!/bin/bash
+#PBS -l select=1:ncpus=24:mpiprocs=24
+#PBS -P CSCI1166
+#PBS -q gpu_1
+#PBS -l walltime=12:00:00
+#PBS -o /mnt/lustre/users/mdickson/logs/output.out
+#PBS -e /mnt/lustre/users/mdickson/logs/error.err
+#PBS -m abe
+#PBS -M u15274170@tuks.co.za
+ulimit -s unlimited
+ 
+cd /mnt/lustre/users/mdickson/MIT807
+python hyper_parameter_tuning.py --loss-function 2 --betas None --teacher-file-path ./data/models/Resnet110.pt --number-of-epochs 300 --early-stopping-patience 20 --run-on CIFAR100 --start-index-config 0 --end-index-config 100 --save-history-file-path ./data/results/traditional
