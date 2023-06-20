@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l select=1:ncpus=24:mpiprocs=24
+#PBS -l select=1:ncpus=9:ngpus=1
 #PBS -P CSCI1166
 #PBS -q gpu_1
 #PBS -l walltime=12:00:00
